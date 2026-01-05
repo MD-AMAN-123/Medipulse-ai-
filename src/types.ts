@@ -44,6 +44,8 @@ export interface Appointment {
   id: string;
   patientName?: string; // Added for Admin view
   patientMobile?: string; // Added for Admin view contact
+  patientEmail?: string; // Added for Admin persistence
+  patientProfileImage?: string; // Added for Admin view
   doctorName: string;
   specialty: string;
   date: string;
@@ -54,6 +56,7 @@ export interface Appointment {
   location?: string;
   meetLink?: string; // Google Meet Link
 }
+
 
 export interface ChartDataPoint {
   day: string;

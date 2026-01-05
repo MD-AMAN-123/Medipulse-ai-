@@ -199,12 +199,17 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ appointments, onUpdateStatus, o
                 <tr key={apt.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                   <td className="p-4">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-slate-500">
-                        <User size={18} />
+                      <div className="w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-slate-500 overflow-hidden">
+                        {apt.patientProfileImage ? (
+                          <img src={apt.patientProfileImage} alt={apt.patientName} className="w-full h-full object-cover" />
+                        ) : (
+                          <User size={18} />
+                        )}
                       </div>
                       <div>
                         <p className="font-bold text-slate-800 dark:text-white text-sm">{apt.patientName || "Guest Patient"}</p>
-                        <p className="text-xs text-slate-400">ID: #{apt.id.slice(-4)}</p>
+                        {apt.patientEmail && <p className="text-[10px] text-slate-400 truncate max-w-[120px]">{apt.patientEmail}</p>}
+                        <p className="text-[10px] text-slate-400">ID: #{apt.id.slice(-4)}</p>
                       </div>
                     </div>
                   </td>
@@ -214,6 +219,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ appointments, onUpdateStatus, o
                       <span>{apt.patientMobile || "N/A"}</span>
                     </div>
                   </td>
+
                   <td className="p-4">
                     <div>
                       <p className="font-medium text-slate-700 dark:text-slate-200 text-sm">{apt.doctorName}</p>

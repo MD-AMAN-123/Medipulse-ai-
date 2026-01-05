@@ -129,92 +129,63 @@ const App: React.FC = () => {
     }
   ]);
 
-  // Appointments State with Local Storage Persistence
-  const [appointments, setAppointments] = useState<Appointment[]>(() => {
-    try {
-      const saved = localStorage.getItem('medipulse_appointments');
-      if (saved) return JSON.parse(saved);
-    } catch (e) {
-      // Fallback
-    }
+  // Appointments State
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
 
-    // Default Initial Appointments
-    return [
-      {
-        id: '1',
-        patientName: 'Alex Johnson',
-        patientMobile: '9876543210',
-        doctorName: 'Dr. Sarah Johnson',
-        specialty: 'Cardiologist',
-        date: 'Today',
-        time: '14:30',
-        status: 'pending',
-        imageUrl: 'https://picsum.photos/100/100',
-        type: 'video',
-        meetLink: 'https://meet.google.com/abc-defg-hij'
-      },
-      {
-        id: '2',
-        patientName: 'Alex Johnson',
-        patientMobile: '9876543210',
-        doctorName: 'Dr. Michael Chen',
-        specialty: 'General Practitioner',
-        date: getRelativeDate(2), // 2 days from now
-        time: '09:00',
-        status: 'upcoming',
-        imageUrl: 'https://picsum.photos/102/102',
-        type: 'in-person',
-        location: 'MedCentral Clinic',
-        meetLink: 'https://meet.google.com/xyz-uvwx-yz'
-      },
-      {
-        id: '3',
-        patientName: 'Alex Johnson',
-        patientMobile: '9876543210',
-        doctorName: 'Dr. Emily Davis',
-        specialty: 'Dermatologist',
-        date: getRelativeDate(5), // 5 days from now
-        time: '11:15',
-        status: 'pending',
-        imageUrl: 'https://picsum.photos/103/103',
-        type: 'in-person',
-        location: 'Skin Care Center',
-        meetLink: 'https://meet.google.com/lmn-opqr-stu'
-      },
-      // Additional patients for Admin view
-      {
-        id: '4',
-        patientName: 'Maria Rodriguez',
-        patientMobile: '9988776655',
-        doctorName: 'Dr. Sarah Johnson',
-        specialty: 'Cardiologist',
-        date: 'Tomorrow',
-        time: '10:00',
-        status: 'pending',
-        imageUrl: 'https://picsum.photos/104/104',
-        type: 'video',
-        meetLink: 'https://meet.google.com/def-ghij-klm'
-      },
-      {
-        id: '5',
-        patientName: 'David Kim',
-        patientMobile: '9123456789',
-        doctorName: 'Dr. Michael Chen',
-        specialty: 'General Practitioner',
-        date: 'Yesterday',
-        time: '15:45',
-        status: 'completed',
-        imageUrl: 'https://picsum.photos/105/105',
-        type: 'in-person',
-        location: 'MedCentral Clinic'
-      }
-    ];
-  });
+  const isAdmin = user?.email === 'admin@medipulse.ai' || user?.role === 'admin';
 
-  // Save appointments to local storage whenever changed
+  // Fetch appointments and doctors from server
   useEffect(() => {
-    localStorage.setItem('medipulse_appointments', JSON.stringify(appointments));
-  }, [appointments]);
+
+    const fetchFromServer = async (isFirstFetch: boolean = false) => {
+      try {
+        // Fetch Appointments
+        const cloudAppointments = await apiService.fetchAppointments();
+        if (cloudAppointments) {
+          // If not first fetch and is admin, check for new appointments and notify
+          if (!isFirstFetch && isAdmin) {
+            const newApts = cloudAppointments.filter(ca => !appointments.some(a => a.id === ca.id));
+            if (newApts.length > 0) {
+              // Play sound for admin
+              try {
+                const audio = new Audio(NOTIFICATION_SOUND);
+                audio.play().catch(e => console.log("Audio notify failed", e));
+              } catch (e) { }
+
+              // Add notification for admin
+              const newNotifs: Notification[] = newApts.map(apt => ({
+                id: `admin_new_${apt.id}_${Date.now()}`,
+                title: 'New Appointment Request',
+                message: `${apt.patientName} booked with ${apt.doctorName} for ${apt.date}.`,
+                time: 'Just now',
+                type: 'info',
+                read: false
+              }));
+              setNotifications(prev => [...newNotifs, ...prev]);
+            }
+          }
+          setAppointments(cloudAppointments);
+        }
+
+        // Fetch Doctors
+        const cloudDoctors = await apiService.fetchDoctors();
+        if (cloudDoctors && cloudDoctors.length > 0) {
+          setDoctors(cloudDoctors);
+        }
+
+        if (isFirstFetch) console.log("Initial Cloud sync successful.");
+      } catch (e) {
+        console.warn("Cloud sync failed.", e);
+      }
+    };
+
+    fetchFromServer(true);
+
+    // Refresh data every 5 seconds for real-time updates
+    const interval = setInterval(() => fetchFromServer(false), 5000);
+    return () => clearInterval(interval);
+  }, [isAdmin, user?.mobile, appointments.length]); // Refresh if admin status, user mobile or length changes
+
 
   // Lifted state to support "Realtime" updates
   const [metrics, setMetrics] = useState<HealthMetric[]>([
@@ -254,70 +225,14 @@ const App: React.FC = () => {
     }
   }, [isDarkMode]);
 
-  const isAdmin = user?.email === 'admin@medipulse.ai' || user?.role === 'admin';
+  // Sync to Cloud whenever data changes (Auto-save)
 
-  // Fetch from server on Admin Login or Periodically
   useEffect(() => {
-    const fetchFromServer = async (isFirstFetch: boolean = false) => {
-      if (isAdmin) {
-        try {
-          // Fetch Appointments
-          const cloudAppointments = await apiService.fetchAppointments();
-          if (cloudAppointments && cloudAppointments.length > 0) {
-            // If not first fetch, check for new appointments and notify
-            if (!isFirstFetch) {
-              const newApts = cloudAppointments.filter(ca => !appointments.some(a => a.id === ca.id));
-              if (newApts.length > 0) {
-                // Play sound for admin
-                try {
-                  const audio = new Audio(NOTIFICATION_SOUND);
-                  audio.play().catch(e => console.log("Audio notify failed", e));
-                } catch (e) { }
-
-                // Add notification for admin
-                const newNotifs: Notification[] = newApts.map(apt => ({
-                  id: `admin_new_${apt.id}_${Date.now()}`,
-                  title: 'New Appointment Request',
-                  message: `${apt.patientName} booked with ${apt.doctorName} for ${apt.date}.`,
-                  time: 'Just now',
-                  type: 'info',
-                  read: false
-                }));
-                setNotifications(prev => [...newNotifs, ...prev]);
-              }
-            }
-            setAppointments(cloudAppointments);
-          }
-
-          // Fetch Doctors
-          const cloudDoctors = await apiService.fetchDoctors();
-          if (cloudDoctors && cloudDoctors.length > 0) {
-            setDoctors(cloudDoctors);
-          }
-
-          if (isFirstFetch) console.log("Admin: Initial Cloud sync successful.");
-        } catch (e) {
-          console.warn("Cloud sync failed, using local data.", e);
-        }
-      }
-    };
-
-    fetchFromServer(true);
-
-    // Refresh data every 5 seconds for Admin to see new patient requests in real-time
-    let interval: any;
-    if (isAdmin) {
-      interval = setInterval(() => fetchFromServer(false), 5000);
-    }
-    return () => clearInterval(interval);
-  }, [isAdmin, appointments.length]); // Re-run if length changes or admin status changes
-
-  // Sync to Cloud whenever data changes (Auto-save for Admin)
-  useEffect(() => {
-    if (isAdmin) {
+    if (appointments.length > 0 || doctors.length > 0) {
       apiService.syncData({ appointments, doctors }).catch(console.error);
     }
-  }, [appointments, doctors, isAdmin]);
+  }, [appointments, doctors]);
+
 
   const toggleTheme = () => setIsDarkMode(!isDarkMode);
 
@@ -339,8 +254,11 @@ const App: React.FC = () => {
       ...newAppointment,
       patientName: user?.name || "Guest User",
       patientMobile: user?.mobile || "",
+      patientEmail: user?.email || "",
+      patientProfileImage: user?.picture || "",
       status: 'pending'
     };
+
 
     // Update local state immediately
     setAppointments(prev => [appointmentWithUser, ...prev]);
@@ -383,8 +301,11 @@ const App: React.FC = () => {
       imageUrl: 'https://picsum.photos/100/100',
       patientName: user?.name || "Guest User",
       patientMobile: user?.mobile || "",
+      patientEmail: user?.email || "",
+      patientProfileImage: user?.picture || "",
       meetLink: data.type === 'video' ? generateMeetLink() : undefined
     };
+
 
     // Update local state
     setAppointments(prev => [newAppointment, ...prev]);
@@ -571,8 +492,9 @@ const App: React.FC = () => {
             userName={user?.name || user?.given_name || "User"}
             userImage={user?.picture}
             metrics={metrics}
-            appointments={appointments.filter(a => a.patientName === (user?.name || "Guest User") || a.patientName === "Alex Johnson")}
+            appointments={appointments.filter(a => a.patientMobile === user?.mobile)}
             notifications={notifications}
+
             onMarkNotificationRead={handleMarkNotificationRead}
             onLogVitals={() => setIsVitalsModalOpen(true)}
             isPremium={isPremium}
@@ -589,8 +511,9 @@ const App: React.FC = () => {
           <LiveAssistant
             userName={user?.name || "User"}
             metrics={metrics}
-            appointments={appointments}
+            appointments={isAdmin ? appointments : appointments.filter(a => a.patientMobile === user?.mobile)}
             onUpdateProfile={handleAIUpdateProfile}
+
             onBookAppointment={handleAIBookAppointment}
             isAdmin={isAdmin}
             doctors={doctors}

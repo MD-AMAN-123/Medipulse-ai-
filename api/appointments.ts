@@ -1,8 +1,41 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
+import fs from 'fs';
+import path from 'path';
 
-// In-memory store (volatile, will reset on cold starts)
-// For a production app, use a real database like MongoDB, PostgreSQL, or Upstash Redis.
-let appointmentsStore: any[] = [
+// Helper to get persistent file path
+const DATA_DIR = path.join(process.cwd(), 'data');
+const APPOINTMENTS_FILE = path.join(DATA_DIR, 'appointments.json');
+const DOCTORS_FILE = path.join(DATA_DIR, 'doctors.json');
+
+// Ensure data directory exists
+if (!fs.existsSync(DATA_DIR)) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+}
+
+// Helper to read data
+const readData = (filePath: string, defaultData: any[]) => {
+    try {
+        if (fs.existsSync(filePath)) {
+            const content = fs.readFileSync(filePath, 'utf8');
+            return JSON.parse(content);
+        }
+    } catch (e) {
+        console.error(`Error reading ${filePath}:`, e);
+    }
+    return defaultData;
+};
+
+// Helper to write data
+const writeData = (filePath: string, data: any[]) => {
+    try {
+        fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf8');
+    } catch (e) {
+        console.error(`Error writing ${filePath}:`, e);
+    }
+};
+
+// Initial Data
+const initialAppointments = [
     {
         id: '1',
         patientName: 'Alex Johnson',
@@ -32,7 +65,7 @@ let appointmentsStore: any[] = [
     }
 ];
 
-let doctorsStore: any[] = [
+const initialDoctors = [
     {
         id: 1,
         name: 'Dr. Sarah Chen',
@@ -77,6 +110,10 @@ export default async function handler(
         return;
     }
 
+    // Load data from files on each request for persistence
+    let appointmentsStore = readData(APPOINTMENTS_FILE, initialAppointments);
+    let doctorsStore = readData(DOCTORS_FILE, initialDoctors);
+
     if (req.method === 'GET') {
         const { type } = req.query;
         if (type === 'doctors') return res.status(200).json(doctorsStore);
@@ -88,9 +125,10 @@ export default async function handler(
 
         if (action === 'add' && appointment) {
             // Check if appointment already exists to prevent duplicates
-            const exists = appointmentsStore.some(a => a.id === appointment.id);
+            const exists = appointmentsStore.some((a: any) => a.id === appointment.id);
             if (!exists) {
                 appointmentsStore = [appointment, ...appointmentsStore];
+                writeData(APPOINTMENTS_FILE, appointmentsStore);
             }
             return res.status(200).json({
                 success: true,
@@ -100,13 +138,14 @@ export default async function handler(
         }
 
         if (appointments && Array.isArray(appointments)) {
-            appointmentsStore = appointments;
+            writeData(APPOINTMENTS_FILE, appointments);
         }
         if (doctors && Array.isArray(doctors)) {
-            doctorsStore = doctors;
+            writeData(DOCTORS_FILE, doctors);
         }
         return res.status(200).json({ success: true, message: "Data synced successfully" });
     }
 
     return res.status(405).json({ error: "Method not allowed" });
 }
+
