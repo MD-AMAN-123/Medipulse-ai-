@@ -17,7 +17,10 @@ const readData = (filePath: string, defaultData: any[]) => {
     try {
         if (fs.existsSync(filePath)) {
             const content = fs.readFileSync(filePath, 'utf8');
-            return JSON.parse(content);
+            const data = JSON.parse(content);
+            if (Array.isArray(data) && data.length > 0) {
+                return data;
+            }
         }
     } catch (e) {
         console.error(`Error reading ${filePath}:`, e);
@@ -124,17 +127,20 @@ export default async function handler(
         const { appointments, doctors, appointment, action } = req.body;
 
         if (action === 'add' && appointment) {
-            // Check if appointment already exists to prevent duplicates
             const exists = appointmentsStore.some((a: any) => a.id === appointment.id);
             if (!exists) {
                 appointmentsStore = [appointment, ...appointmentsStore];
                 writeData(APPOINTMENTS_FILE, appointmentsStore);
             }
-            return res.status(200).json({
-                success: true,
-                message: "Appointment added successfully",
-                appointments: appointmentsStore
-            });
+            return res.status(200).json({ success: true, appointments: appointmentsStore });
+        }
+
+        if (action === 'update' && appointment) {
+            appointmentsStore = appointmentsStore.map((a: any) =>
+                a.id === appointment.id ? { ...a, ...appointment } : a
+            );
+            writeData(APPOINTMENTS_FILE, appointmentsStore);
+            return res.status(200).json({ success: true, appointments: appointmentsStore });
         }
 
         if (appointments && Array.isArray(appointments)) {

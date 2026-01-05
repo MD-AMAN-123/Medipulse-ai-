@@ -43,5 +43,17 @@ export const apiService = {
             console.error('Failed to book appointment:', error);
             throw error;
         }
+    },
+
+    async updateAppointment(appointment: Partial<Appointment> & { id: string }): Promise<void> {
+        try {
+            await axios.post(API_BASE, {
+                appointment,
+                action: 'update'
+            });
+        } catch (error) {
+            console.error('Failed to update appointment:', error);
+            throw error;
+        }
     }
 };

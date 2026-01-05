@@ -134,25 +134,39 @@ const App: React.FC = () => {
 
   const isAdmin = user?.email === 'admin@medipulse.ai' || user?.role === 'admin';
 
-  // Fetch appointments and doctors from server
-  useEffect(() => {
+  // Sync to Cloud whenever data changes (Auto-save)
+  // Added a check to ensure we don't wipe the server with  // Sync to Cloud whenever data changes (Auto-save)
+  const [hasLoadedFromServer, setHasLoadedFromServer] = useState(false);
+  const appointmentsRef = React.useRef<Appointment[]>([]);
+  const doctorsRef = React.useRef<Doctor[]>([]);
+  const isSyncingRef = React.useRef(false);
 
+  // Keep refs in sync with state for use in async callbacks/intervals
+  useEffect(() => {
+    appointmentsRef.current = appointments;
+  }, [appointments]);
+
+  useEffect(() => {
+    doctorsRef.current = doctors;
+  }, [doctors]);
+
+  useEffect(() => {
     const fetchFromServer = async (isFirstFetch: boolean = false) => {
+      // Don't fetch if we are currently pushing an update to avoid race conditions
+      if (isSyncingRef.current) return;
+
       try {
-        // Fetch Appointments
         const cloudAppointments = await apiService.fetchAppointments();
         if (cloudAppointments) {
           // If not first fetch and is admin, check for new appointments and notify
           if (!isFirstFetch && isAdmin) {
-            const newApts = cloudAppointments.filter(ca => !appointments.some(a => a.id === ca.id));
+            const newApts = cloudAppointments.filter(ca => !appointmentsRef.current.some(a => a.id === ca.id));
             if (newApts.length > 0) {
-              // Play sound for admin
               try {
                 const audio = new Audio(NOTIFICATION_SOUND);
                 audio.play().catch(e => console.log("Audio notify failed", e));
               } catch (e) { }
 
-              // Add notification for admin
               const newNotifs: Notification[] = newApts.map(apt => ({
                 id: `admin_new_${apt.id}_${Date.now()}`,
                 title: 'New Appointment Request',
@@ -164,27 +178,30 @@ const App: React.FC = () => {
               setNotifications(prev => [...newNotifs, ...prev]);
             }
           }
-          setAppointments(cloudAppointments);
+
+          // Only update if data has actually changed to minimize re-renders
+          if (JSON.stringify(cloudAppointments) !== JSON.stringify(appointmentsRef.current)) {
+            setAppointments(cloudAppointments);
+          }
         }
 
-        // Fetch Doctors
         const cloudDoctors = await apiService.fetchDoctors();
         if (cloudDoctors && cloudDoctors.length > 0) {
-          setDoctors(cloudDoctors);
+          if (JSON.stringify(cloudDoctors) !== JSON.stringify(doctorsRef.current)) {
+            setDoctors(cloudDoctors);
+          }
         }
 
-        if (isFirstFetch) console.log("Initial Cloud sync successful.");
+        setHasLoadedFromServer(true);
       } catch (e) {
         console.warn("Cloud sync failed.", e);
       }
     };
 
     fetchFromServer(true);
-
-    // Refresh data every 5 seconds for real-time updates
     const interval = setInterval(() => fetchFromServer(false), 5000);
     return () => clearInterval(interval);
-  }, [isAdmin, user?.mobile, appointments.length]); // Refresh if admin status, user mobile or length changes
+  }, [isAdmin, user?.mobile]);
 
 
   // Lifted state to support "Realtime" updates
@@ -225,13 +242,23 @@ const App: React.FC = () => {
     }
   }, [isDarkMode]);
 
-  // Sync to Cloud whenever data changes (Auto-save)
-
   useEffect(() => {
-    if (appointments.length > 0 || doctors.length > 0) {
-      apiService.syncData({ appointments, doctors }).catch(console.error);
-    }
-  }, [appointments, doctors]);
+    // Broad sync for general data changes, protected by isSyncingRef
+    const performSync = async () => {
+      if (!hasLoadedFromServer || isSyncingRef.current) return;
+
+      isSyncingRef.current = true;
+      try {
+        await apiService.syncData({ appointments, doctors });
+      } catch (e) {
+        console.error("Auto-sync failed", e);
+      } finally {
+        isSyncingRef.current = false;
+      }
+    };
+
+    performSync();
+  }, [appointments, doctors, hasLoadedFromServer]);
 
 
   const toggleTheme = () => setIsDarkMode(!isDarkMode);
@@ -263,11 +290,14 @@ const App: React.FC = () => {
     // Update local state immediately
     setAppointments(prev => [appointmentWithUser, ...prev]);
 
-    // Push to cloud
+    // Push to cloud with lock
+    isSyncingRef.current = true;
     try {
       await apiService.bookAppointment(appointmentWithUser);
     } catch (e) {
       console.error("Failed to sync booking to cloud", e);
+    } finally {
+      isSyncingRef.current = false;
     }
   };
 
@@ -391,12 +421,25 @@ const App: React.FC = () => {
     handleDeleteAppointment(data.appointmentId);
   };
 
-  const handleUpdateAppointmentStatus = (id: string, newStatus: 'upcoming' | 'cancelled', meetLink?: string) => {
+  const handleUpdateAppointmentStatus = async (id: string, newStatus: 'upcoming' | 'cancelled', meetLink?: string) => {
+    const updatedApt = { id, status: newStatus, meetLink: meetLink || undefined };
+
+    // Update local state
     setAppointments(prev => prev.map(apt =>
       apt.id === id ? { ...apt, status: newStatus, meetLink: meetLink || apt.meetLink } : apt
     ));
 
-    const appointment = appointments.find(a => a.id === id);
+    // Push to cloud atomically
+    isSyncingRef.current = true;
+    try {
+      await apiService.updateAppointment(updatedApt);
+    } catch (e) {
+      console.error("Status update failed on server", e);
+    } finally {
+      isSyncingRef.current = false;
+    }
+
+    const appointment = appointmentsRef.current.find(a => a.id === id);
     if (appointment) {
       const isAccepted = newStatus === 'upcoming';
 
