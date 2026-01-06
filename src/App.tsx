@@ -224,14 +224,19 @@ const App: React.FC = () => {
             } catch (e) { }
 
             const newNotifs: Notification[] = confirmedApts.map(apt => ({
-              id: `patient_confirmed_${apt.id}_${Date.now()}`,
+              id: `confirmed_${apt.id}`,
               title: 'Appointment Confirmed!',
               message: `Your session with ${apt.doctorName} on ${apt.date} is accepted. Meeting Link: ${apt.meetLink || 'Virtual Clinic'}`,
               time: 'Just now',
               type: 'success',
               read: false
             }));
-            setNotifications(prev => [...newNotifs, ...prev]);
+
+            setNotifications(prev => {
+              // Remove the pending request notification for these appointments
+              const filtered = prev.filter(n => !confirmedApts.some(apt => n.id === `request_${apt.id}`));
+              return [...newNotifs, ...filtered];
+            });
           }
         }
 
@@ -340,7 +345,7 @@ const App: React.FC = () => {
     setAppointments(updatedAppointments);
 
     setNotifications(prev => [{
-      id: Date.now().toString(),
+      id: `request_${appointment.id}`,
       title: 'Booking Request Sent',
       message: `Your request for ${appointment.doctorName} on ${appointment.date} is pending approval.`,
       time: 'Just now',
@@ -546,7 +551,7 @@ const App: React.FC = () => {
       }
 
       const notification: Notification = {
-        id: Date.now().toString(),
+        id: isAccepted ? `confirmed_${appointment.id}` : `declined_${appointment.id}`,
         title: isAccepted ? 'Appointment Confirmed' : 'Appointment Declined',
         message: message,
         time: 'Just now',
@@ -554,7 +559,11 @@ const App: React.FC = () => {
         read: false
       };
 
-      setNotifications(prev => [notification, ...prev]);
+      setNotifications(prev => {
+        // Remove the pending request notification
+        const filtered = prev.filter(n => n.id !== `request_${id}`);
+        return [notification, ...filtered];
+      });
     }
   };
 
