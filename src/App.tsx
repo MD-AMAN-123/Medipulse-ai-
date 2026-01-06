@@ -208,6 +208,33 @@ const App: React.FC = () => {
           }
         }
 
+        // Specific detection for Patients: If a pending appointment becomes 'upcoming', notify them with the link
+        if (!isFirstFetch && !isAdmin && user) {
+          const confirmedApts = cloudAppointments.filter(ca => {
+            const local = appointmentsRef.current.find(a => a.id === ca.id);
+            // Identifying if it belongs to current patient
+            const isMine = (user.email && ca.patientEmail === user.email) || (user.mobile && ca.patientMobile === user.mobile);
+            return isMine && local && local.status === 'pending' && ca.status === 'upcoming';
+          });
+
+          if (confirmedApts.length > 0) {
+            try {
+              const audio = new Audio(NOTIFICATION_SOUND);
+              audio.play().catch(() => { });
+            } catch (e) { }
+
+            const newNotifs: Notification[] = confirmedApts.map(apt => ({
+              id: `patient_confirmed_${apt.id}_${Date.now()}`,
+              title: 'Appointment Confirmed!',
+              message: `Your session with ${apt.doctorName} on ${apt.date} is accepted. Join here: ${apt.meetLink || 'Clinic'}`,
+              time: 'Just now',
+              type: 'success',
+              read: false
+            }));
+            setNotifications(prev => [...newNotifs, ...prev]);
+          }
+        }
+
         // Only update if data has actually changed to minimize re-renders
         if (JSON.stringify(cloudAppointments) !== JSON.stringify(appointmentsRef.current)) {
           setAppointments(cloudAppointments);
