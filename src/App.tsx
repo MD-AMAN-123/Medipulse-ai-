@@ -341,10 +341,10 @@ const App: React.FC = () => {
 
     setNotifications(prev => [{
       id: Date.now().toString(),
-      title: 'Appointment Booked',
-      message: `Confirmed with ${appointment.doctorName} for ${appointment.date}.`,
+      title: 'Booking Request Sent',
+      message: `Your request for ${appointment.doctorName} on ${appointment.date} is pending approval.`,
       time: 'Just now',
-      type: 'success',
+      type: 'info',
       read: false
     }, ...prev]);
 

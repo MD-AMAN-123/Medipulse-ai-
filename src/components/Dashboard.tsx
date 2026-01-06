@@ -1189,6 +1189,31 @@ const Dashboard: React.FC<DashboardProps> = ({ userName, userImage, metrics, app
                 <p className="text-slate-600 dark:text-slate-300 font-semibold">{activeNotification.time}</p>
               </div>
 
+              {/* Link Display for Confirmation Notification */}
+              {activeNotification.message.includes('https://') && (
+                <div className="w-full mb-6 text-left">
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Meeting Link</p>
+                  <a
+                    href={activeNotification.message.match(/https:\/\/[^\s]+/)?.[0]}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="group block w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4 rounded-2xl hover:border-blue-500 dark:hover:border-blue-500 transition-all"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="bg-blue-100 dark:bg-blue-900/30 p-2 rounded-xl text-blue-600 dark:text-blue-400 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                        <Video size={20} />
+                      </div>
+                      <div className="flex-1 overflow-hidden">
+                        <p className="text-blue-600 dark:text-blue-400 font-bold text-sm truncate">
+                          {activeNotification.message.match(/https:\/\/[^\s]+/)?.[0]}
+                        </p>
+                        <p className="text-[10px] text-slate-400 font-medium mt-0.5">Click to join session</p>
+                      </div>
+                    </div>
+                  </a>
+                </div>
+              )}
+
               <button
                 onClick={() => setActiveNotification(null)}
                 className="w-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold py-3.5 rounded-2xl hover:bg-slate-800 dark:hover:bg-slate-100 transition-colors shadow-lg"
