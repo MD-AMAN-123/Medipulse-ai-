@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, MessageSquare, CheckCircle, Crown, Edit2, Camera, Sun, Moon, Heart, Activity, LayoutGrid, ChevronRight, LogOut, Shield, Mic, User } from 'lucide-react';
+import { Plus, MessageSquare, CheckCircle, Crown, Edit2, Camera, Sun, Moon, Heart, Activity, LayoutGrid, ChevronRight, LogOut, Shield, Mic, User, HelpCircle } from 'lucide-react';
 import { AppView, HealthMetric, Appointment, Notification, Doctor } from './types';
 import Dashboard from './components/Dashboard';
 import AiChat from './components/AiChat';
@@ -11,6 +11,7 @@ import { LogVitalsModal } from './components/LogVitalsModal';
 import { PaymentModal } from './components/PaymentModal';
 import Login from './components/Login';
 import { MediPulseLogo } from './components/MediPulseLogo';
+import Support from './components/Support';
 import { apiService } from './services/apiService';
 
 // Short pleasant notification chime (Valid Base64 WAV - 0.2s sine beep)
@@ -706,6 +707,8 @@ const App: React.FC = () => {
             onUpgrade={() => setIsUpgradeConfirmOpen(true)}
           />
         );
+      case AppView.SUPPORT:
+        return <Support />;
       case AppView.PROFILE:
         return (
           <div className="flex flex-col items-center pt-8 pb-32 text-slate-400 animate-fade-in w-full">
@@ -850,6 +853,17 @@ const App: React.FC = () => {
                     <ChevronRight size={18} className="text-slate-300 group-hover:text-teal-500 transition-colors" />
                   </button>
 
+                  <button
+                    onClick={() => setActiveTab(AppView.SUPPORT)}
+                    className="w-full flex items-center justify-between p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 text-slate-700 dark:text-slate-200 font-bold hover:bg-slate-50 dark:hover:bg-slate-800 hover:border-teal-200 dark:hover:border-teal-900 transition-all shadow-sm group"
+                  >
+                    <div className="flex items-center gap-4">
+                      <HelpCircle size={20} className="text-slate-400 group-hover:text-teal-500 transition-colors" />
+                      <span>Customer Support</span>
+                    </div>
+                    <ChevronRight size={18} className="text-slate-300 group-hover:text-teal-500 transition-colors" />
+                  </button>
+
                   {/* Admin Panel Link in Profile for quick access if Admin */}
                   {isAdmin && (
                     <button
@@ -962,6 +976,16 @@ const App: React.FC = () => {
               <CheckCircle size={18} />
             </div>
             Appointments
+          </button>
+
+          <button
+            onClick={() => setActiveTab(AppView.SUPPORT)}
+            className={`w-full text-left px-4 py-3 rounded-xl font-medium transition-all flex items-center gap-3 ${activeTab === AppView.SUPPORT ? 'bg-teal-50 dark:bg-teal-900/20 text-teal-600 dark:text-teal-400' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
+          >
+            <div className={`p-1.5 rounded-lg ${activeTab === AppView.SUPPORT ? 'bg-teal-100 dark:bg-teal-900/40' : 'bg-transparent'}`}>
+              <HelpCircle size={18} />
+            </div>
+            Support
           </button>
 
           <button

@@ -5,7 +5,8 @@ export enum AppView {
   LIVE_ASSISTANT = 'LIVE_ASSISTANT',
   PROFILE = 'PROFILE',
   ADMIN_PANEL = 'ADMIN_PANEL',
-  AI_CHAT = 'AI_CHAT'
+  AI_CHAT = 'AI_CHAT',
+  SUPPORT = 'SUPPORT'
 }
 
 export interface HealthMetric {
