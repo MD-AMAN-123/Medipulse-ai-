@@ -684,6 +684,7 @@ const App: React.FC = () => {
             onAddDoctor={handleAddDoctor}
             onUpdateDoctor={handleUpdateDoctor}
             onDeleteDoctor={handleDeleteDoctor}
+            appointments={filteredAppointments}
           />
         );
       case AppView.ADMIN_PANEL:

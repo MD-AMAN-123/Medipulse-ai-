@@ -18,6 +18,7 @@ interface AppointmentsProps {
   onAddDoctor?: (doctor: Doctor) => void;
   onUpdateDoctor?: (doctor: Doctor) => void;
   onDeleteDoctor?: (id: string | number) => void;
+  appointments?: Appointment[];
 }
 
 const Appointments: React.FC<AppointmentsProps> = ({
@@ -27,7 +28,8 @@ const Appointments: React.FC<AppointmentsProps> = ({
   isAdmin = false,
   onAddDoctor,
   onUpdateDoctor,
-  onDeleteDoctor
+  onDeleteDoctor,
+  appointments = []
 }) => {
   const [selectedSpecialist, setSelectedSpecialist] = useState<Doctor | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
@@ -295,6 +297,68 @@ const Appointments: React.FC<AppointmentsProps> = ({
           })}
         </div>
       </div>
+
+      {/* Upcoming Appointment Section - Desktop View Enhancement */}
+      {appointments.length > 0 && (
+        (() => {
+          // Find the most relevant upcoming appointment
+          const upcomingApt = appointments.find(a =>
+            (a.status === 'upcoming' || (a.status === 'pending' && a.meetLink))
+          );
+
+          if (!upcomingApt) return null;
+
+          const showJoinButton = upcomingApt.status === 'upcoming' || (upcomingApt.status === 'pending' && !!upcomingApt.meetLink);
+
+          return (
+            <div className="mb-8 bg-blue-50 dark:bg-blue-900/10 rounded-[32px] p-6 border border-blue-100 dark:border-blue-900/30">
+              <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-4">Your Next Appointment</h3>
+              <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col md:flex-row items-center gap-6">
+
+                {/* Doctor Info */}
+                <div className="flex items-center gap-4 flex-1 w-full md:w-auto">
+                  <img src={upcomingApt.imageUrl || "https://picsum.photos/100/100"} alt={upcomingApt.doctorName} className="w-16 h-16 rounded-2xl object-cover shadow-sm" />
+                  <div>
+                    <h4 className="font-bold text-slate-900 dark:text-white text-lg">{upcomingApt.doctorName}</h4>
+                    <p className="text-teal-600 dark:text-teal-400 font-medium text-sm">{upcomingApt.specialty}</p>
+                    <span className={`inline-block mt-1 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${upcomingApt.status === 'upcoming' ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400' :
+                      upcomingApt.status === 'pending' ? 'bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400' :
+                        'bg-slate-100 text-slate-500'
+                      }`}>{upcomingApt.status === 'upcoming' ? 'Confirmed' : upcomingApt.status}</span>
+                  </div>
+                </div>
+
+                {/* Date & Time Slot */}
+                <div className="flex gap-4 w-full md:w-auto justify-center md:justify-start">
+                  <div className="text-center px-4 py-2 bg-slate-50 dark:bg-slate-700 rounded-xl border border-slate-100 dark:border-slate-600">
+                    <p className="text-xs text-slate-400 font-bold uppercase">Date</p>
+                    <p className="text-slate-800 dark:text-white font-bold">{upcomingApt.date}</p>
+                  </div>
+                  <div className="text-center px-4 py-2 bg-slate-50 dark:bg-slate-700 rounded-xl border border-slate-100 dark:border-slate-600">
+                    <p className="text-xs text-slate-400 font-bold uppercase">Time</p>
+                    <p className="text-slate-800 dark:text-white font-bold">{upcomingApt.time}</p>
+                  </div>
+                </div>
+
+                {/* Join Button */}
+                {showJoinButton && (
+                  <div className="w-full md:w-auto">
+                    <a
+                      href={upcomingApt.meetLink || "https://meet.google.com/landing"}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-xl text-sm font-bold transition-all shadow-lg shadow-blue-600/20 hover:scale-105 w-full md:w-auto"
+                    >
+                      <Video size={20} />
+                      Join Meet
+                    </a>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })()
+      )}
 
       {/* Availability Section */}
       {selectedSpecialist && (
